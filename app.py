@@ -1,23 +1,25 @@
-import os
 import streamlit as st
-from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.output_parsers import StrOutputParser
 
-# Load API key
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
+# LangChain Chain with memory
+def get_chain():
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are a helpful assistant."),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "{question}")
+    ])
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo",
+        api_key=st.secrets["OPENAI_API_KEY"]
+    )
+    return prompt | llm | StrOutputParser()
 
-# LLM
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    api_key=api_key
-)
+# UI
+st.title("🦜 LangChain Chatbot")
 
-st.set_page_config(page_title="LangChain Chatbot", page_icon="🤖")
-st.title("🤖 LangChain Chatbot")
-
-# Session memory
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
@@ -28,17 +30,22 @@ for msg in st.session_state.chat_history:
     else:
         st.chat_message("assistant").write(msg.content)
 
-# User input
-user_input = st.chat_input("Type your message...")
+# Input
+user_input = st.chat_input("Kuch poochein...")
 
 if user_input:
-    # show user msg
     st.chat_message("user").write(user_input)
+    
+    chain = get_chain()
+    
+    with st.spinner("Soch raha hoon..."):
+        response = chain.invoke({
+            "question": user_input,
+            "chat_history": st.session_state.chat_history
+        })
+    
+    st.chat_message("assistant").write(response)
+    
+    # Update history
     st.session_state.chat_history.append(HumanMessage(content=user_input))
-
-    # get response
-    response = llm.invoke(st.session_state.chat_history)
-
-    # show bot msg
-    st.chat_message("assistant").write(response.content)
-    st.session_state.chat_history.append(AIMessage(content=response.content))
+    st.session_state.chat_history.append(AIMessage(content=response))
