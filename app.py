@@ -18,10 +18,18 @@ def get_chain():
 
 st.title("🦜 LangChain Chatbot")
 
+# Clear chat button
+if st.button("🗑️ Clear Chat"):
+    st.session_state.chat_history = []
+    st.rerun()
+
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-for msg in st.session_state.chat_history:
+# Sirf last 10 messages history mein rakho
+history = st.session_state.chat_history[-10:]
+
+for msg in history:
     if isinstance(msg, HumanMessage):
         st.chat_message("user").write(msg.content)
     else:
@@ -33,10 +41,16 @@ if user_input:
     st.chat_message("user").write(user_input)
     chain = get_chain()
     with st.spinner("Soch raha hoon..."):
-        response = chain.invoke({
-            "question": user_input,
-            "chat_history": st.session_state.chat_history
-        })
+        try:
+            response = chain.invoke({
+                "question": user_input,
+                "chat_history": history
+            })
+        except Exception as e:
+            st.session_state.chat_history = []
+            st.error("Error aaya, chat history clear kar di. Dobara try karo!")
+            st.stop()
+
     st.chat_message("assistant").write(response)
     st.session_state.chat_history.append(HumanMessage(content=user_input))
     st.session_state.chat_history.append(AIMessage(content=response))
